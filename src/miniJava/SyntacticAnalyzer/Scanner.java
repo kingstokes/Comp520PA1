@@ -10,6 +10,7 @@ public class Scanner {
 	InputStream inputStream = null;
 	char currentChar;
 	char previewedChar;
+	char binop;
 	String currentToken = "";
 	boolean lookingForFirstCharOfToken;
 	boolean lastWasSemicolon = false;
@@ -23,6 +24,7 @@ public class Scanner {
 	boolean encounteredLeftBracket = false;
 	boolean encounteredRightBracket = false;
 	boolean encounteredDot = false;
+	boolean encounteredBINOP = false;
 	
 
 	boolean comments = false;
@@ -183,9 +185,11 @@ public class Scanner {
 			lookingForFirstCharOfToken = true;
 			currentToken = "";
 			currentChar = ' ';
+			System.out.println("encounteredDot: " + encounteredDot);
 		}
 		
 		if (encounteredDot){
+			encounteredDot = false;
 		  System.out.println("encountered dot resolution");
 		  return new Token("DOT", ".");
 		}
@@ -226,9 +230,14 @@ public class Scanner {
 			return new Token("LEFTBRACKET", "[");
 		}
 		if (encounteredRightBracket) {
-			System.out.println(encounteredRightBracket);
+			System.out.println("encounteredRightBracket");
 			encounteredRightBracket = false;
 			return new Token("RIGHTBRACKET", "]");
+		}
+		if (encounteredBINOP){
+			System.out.println("encounteredBINOP: " + encounteredBINOP);
+			encounteredBINOP = false;
+			return new Token("BINOP", ""+binop);
 		}
 
 		System.out.println("about to enter search mode....");
@@ -247,6 +256,7 @@ public class Scanner {
 					+ currentChar);
 
 			if (currentChar == '$') {
+				System.out.println("Detected EOT. Returning EOT.");
 				return new Token("EOT", "$");
 			}
 
@@ -359,7 +369,7 @@ public class Scanner {
 					System.out.println("currentToken: " + currentToken);
 					//return new Token(typeOfToken(), currentToken);
 				}
-				encounteredDot = false;
+				encounteredDot = true;
 				return new Token(typeOfToken(), currentToken);
 			}
 			if (currentChar == '(') {
@@ -420,6 +430,16 @@ public class Scanner {
 					encounteredRightBracket = true;
 					currentToken = (currentToken.substring(0,
 							currentToken.length() - 1)).trim();
+				}
+				return new Token(typeOfToken(), currentToken);
+			}
+			//recognize BINOPs
+			if (currentChar == '+' || currentChar == '-' || currentChar == '/'
+					|| currentChar == '*'){
+				System.out.println("encountered binary operator");
+				if (currentToken.length() > 1){
+					encounteredBINOP = true;
+					currentToken = (currentToken.substring(0, currentToken.length()-1)).trim();
 				}
 				return new Token(typeOfToken(), currentToken);
 			}

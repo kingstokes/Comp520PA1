@@ -5,7 +5,7 @@ public class Parser {
 	// data members
 	private Scanner scanner;
 	private Token token;
-	boolean leftBraceInStatement = true;
+	boolean leftBraceInStatement = false;
 
 	// constructor
 	public Parser(Scanner scanner) {
@@ -42,6 +42,7 @@ public class Parser {
 			parseDeclarators();
 			System.out.println("expecting to see an identifier next.");
 			// System.exit(0);
+			//parseIdentifier();
 			parseIdentifier();
 			System.out.println("just parsed identifier");
 			// System.exit(0);
@@ -128,7 +129,7 @@ public class Parser {
 					}
 				}// end while statement
 				//here we will check for a return statement and then close the method declaration
-				
+				//System.exit(0);
 				System.out
 						.println("check for return statement and accept right brace if no return statement here.");
 
@@ -137,6 +138,7 @@ public class Parser {
 					accept("RETURN");
 					parseExpression();
 					accept("SEMICOLON");
+					System.exit(0);
 					//accept("RIGHTBRACE");
 				}
 				// at this point method declaration has been fully read.
@@ -148,24 +150,38 @@ public class Parser {
 				// look for a right brace as indicator that loop needs to
 				// end.
 				accept("RIGHTBRACE"); //end of method declaration
-				/*
+				System.out.println("location check after right brace was accepted.");
+				
 				if (token.type.equals("RIGHTBRACE")) {
 					System.out.println("Breaking from loop mechanism.");
-					acceptIt(); //this is the brace at end of given method declaration
-					break;
+					System.out.println("accept brace at end of class");
+					acceptIt(); //this is the brace at end of class
+					System.out.println("don't break after last brace parsed.");
+					//break;
 				} else {
 					System.out.println("continuing loop mechanism....");
-					// System.exit(0);
+					//System.exit(0);
 					continue;
-				}*/
+				}
 
 			}// end of code to handle method declaration.
+			System.out.println("Expecting EOT.");
+			if (token.type.equals("EOT")){
+				System.out.println("EOT PROCESSING");
+				accept("EOT");
+			}
 			
 			//look if we have an end of class brace or if the is another method/field declaration
 			if (token.type.equals("RIGHTBRACE")){
+				System.out.println("FINAL CALL FOR RIGHT BRACE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+				//System.exit(0);
 				accept("RIGHTBRACE"); //this is the right brace at end of class declaration
+				//System.exit(0);
 				accept("EOT");
+				//System.exit(0);
 			} else {
+				System.out.println("CALLING SYSTEM EXIT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+				System.exit(0);
 				continue;
 			}
 
@@ -546,7 +562,8 @@ public class Parser {
 			System.out.println("static....acceptIt");
 			acceptIt();
 		}
-		System.out.println("calling parseType from parseDeclarator()");
+		
+		System.out.println("CALLING PARSETYPE FROM PARSEDECLARATOR() !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 		parseType();
 	}
 
@@ -559,8 +576,9 @@ public class Parser {
 	private void accept(String expectedToken) {
 		System.out.println("expectedToken: " + expectedToken);
 		System.out.println("token.type: " + token.type);
-		if (token.type == expectedToken) {
+		if (token.type.trim() == expectedToken) {
 			if (token.type.equals("EOT")){
+				System.out.println("accepting EOT");
 				System.exit(0);
 			}
 			System.out.println("accepting token and moving to next");
