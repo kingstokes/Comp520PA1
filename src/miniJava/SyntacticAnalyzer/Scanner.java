@@ -19,13 +19,15 @@ public class Scanner {
 	boolean encounteredLeftBrace = false;
 	boolean encounteredComma = false;
 	boolean encounteredRightParen = false;
+	boolean spaceDelimiter = false;
+	boolean eot = false;
 
 	boolean encounteredRightBrace = false;
 	boolean encounteredLeftBracket = false;
 	boolean encounteredRightBracket = false;
 	boolean encounteredDot = false;
 	boolean encounteredBINOP = false;
-	
+	boolean encounteredUNOP = false;
 
 	boolean comments = false;
 
@@ -34,35 +36,71 @@ public class Scanner {
 	public Scanner(InputStream inputStream) {
 		this.inputStream = inputStream;
 	}
-	
-	private void ignoreMultiLineComment(){
-		//this method is called by nextChar() in the event that a '/*'
-		//has been encountered. The method will simply pull off all characters
-		//until the stop sequence of '*/' is encountered.
-		
+
+	public void ignoreMultiLineComment() {
+		// this method is called by nextChar() in the event that a '/*'
+		// has been encountered. The method will simply pull off all characters
+		// until the stop sequence of '*/' is encountered.
+		lookedAhead = false;
+		boolean removingComments = true;
+		char pluckedChar = ' ';
 		System.out.println("ignoreMultiLineComment called...");
 		int num = 0;
-		while(true){
-			try {
-				num = inputStream.read();
-			} catch (IOException e){
-				e.printStackTrace();
-			}
-			char pluckedChar = (char) num;
-			if (pluckedChar == '*'){
-				char next = peek();
-				if (next == '/'){
+		while (removingComments) {
+				try {
+					num = inputStream.read();
+					if (num < 0) {
+						num = '$';
+						eot = true;
+						break;
+					}
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				pluckedChar = (char) num;
+				System.out.println("pluckedChar: " + pluckedChar);
+				System.out.println("lookedAhead: " + lookedAhead);
+			
+
+			// System.out.println("");
+			if (pluckedChar == '*') {
+				char next = ' ';
+				if (lookedAhead) {
+					next = previewedChar;
+					lookedAhead = false;
+				} else {
+					next = peek();
+					lookedAhead = true;
+				}
+				System.out.println("next: " + next);
+				if (next == '/') {
 					lookingForFirstCharOfToken = true;
 					previewedChar = ' ';
 					lookedAhead = false;
 					currentChar = ' ';
 					break;
+				} else if (next == '*'){
+					System.out.println("next is a star!!");
+				   while (next == '*'){
+					   next = peek();
+					   if (next == '/'){
+						   System.out.println("peeked and found slash after star.");
+						   removingComments = false;
+						   lookingForFirstCharOfToken = true;
+						   previewedChar = ' ';
+						   lookedAhead = false;
+						   currentChar = ' ';
+						   break;
+					   }
+				   
+				   }
+						   
 				}
-			}
-		}//end while loop
-	}//end of method
+			} 
+		}// end while loop
+	}// end of method
 
-	private void ignoreSingleLineComment() {
+	public void ignoreSingleLineComment() {
 		// this method will be called by nextChar if // is read in
 		// method will pull of an entire line of input and then return
 		// currentChar as ' '
@@ -71,18 +109,34 @@ public class Scanner {
 		while (true) {
 			try {
 				num = inputStream.read();
+				System.out.println("read off a character.");
+				if (num < 0) {
+					// end of file
+					System.out
+							.println("eof is at end of line with comment on it.");
+					num = '$';
+					eot = true;
+					break;
+				}
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 			char pluckedChar = (char) num;
-			if (pluckedChar == '\n') {
+			String plucked = "" + pluckedChar;
+			System.out.println("pluckedChar: " + pluckedChar);
+			// System.exit(0);
+			if (pluckedChar == '\n' || plucked == "\r\n") {
+				System.out.println("pluckedChar from ignore line comment: "
+						+ pluckedChar);
 				lookingForFirstCharOfToken = true;
 				lookedAhead = false;
 				previewedChar = ' ';
 				currentChar = ' '; // beginning of new line and new token.
+				// System.exit(0);
 				break;
 			}
+
 		}
 
 	}
@@ -103,13 +157,14 @@ public class Scanner {
 			}
 
 			currentChar = (char) num;
-			//if we encounter a '/' then we should peek at next symbol to see if 
-			//its a comment.
+			// if we encounter a '/' then we should peek at next symbol to see
+			// if
+			// its a comment.
 			if (currentChar == '/') {
 				char next = peek();
 				if (next == '/') {
 					ignoreSingleLineComment();
-				} else if (next == '*'){
+				} else if (next == '*') {
 					ignoreMultiLineComment();
 				}
 			}
@@ -124,39 +179,123 @@ public class Scanner {
 
 	public Token scan() {
 		System.out.println("Scanning...");
-
+		spaceDelimiter = false;
 		// this method will return the tokens
 		// uses nextChar() to keep grabbing characters to form tokens.
 		// boolean lookingForFirstCharOfToken;
 
 		if (lookedAhead) {
 			System.out.println("lookedAhead.");
-			lookingForFirstCharOfToken = false;
+
+			if (previewedChar == ' ') {
+				lookingForFirstCharOfToken = true;
+			} else {
+				lookingForFirstCharOfToken = false;
+			}
+
+			// currentChar = ' ';
+
 			// currentToken will begin with the previewed character at index 0.
 			System.out.println("currentChar: " + currentChar);
+
 			currentToken = "" + previewedChar;
 			// currentToken = "" + previewedChar;
 			// now I need to loop through and pull off remaining characters to
 			// form token.
 			System.out.println("currentToken & previewedChar: " + currentToken);
-			//if we peek and see a space then the token we have is ready to be proessed.
-			//otherwise we need to complete the token before moving on.
+
+			// if we peek and see a space then the token we have is ready to be
+			// processed.
+			// otherwise we need to complete the token before moving on.
 			char next = peek();
+
+			if (currentToken.equals("!")) {
+				System.out.println("scanner returning a UNOP Token.");
+				if (currentToken.length() > 1) {
+					currentToken = currentToken.substring(0,
+							currentToken.length() - 1);
+				}
+				encounteredUNOP = true;
+				return new Token("UNOP", "!");
+			}
+
+			/*
+			 * if (currentToken.equals("[")){
+			 * System.out.println("scanner returning leftbracket token"); if
+			 * (currentToken.length() > 1){ currentToken =
+			 * currentToken.substring(0, currentToken.length()-1); }
+			 * encounteredLeftBracket = true; return new Token("LEFTBRACKET",
+			 * "["); }
+			 * 
+			 * if (currentToken.equals("]")){ if (currentToken.length() > 1){
+			 * currentToken = currentToken.substring(0,
+			 * currentToken.length()-1); } encounteredRightBracket = true;
+			 * return new Token("RIGHTBRACKET", "]"); }
+			 * 
+			 * if (currentToken.equals("(")){ if (currentToken.length() > 1){
+			 * currentToken = currentToken.substring(0,
+			 * currentToken.length()-1); } encounteredLeftParen = true; return
+			 * new Token("LEFTPAREN", "("); }
+			 * 
+			 * if (currentToken.equals(")")){ if (currentToken.length() > 1){
+			 * currentToken = currentToken.substring(0,
+			 * currentToken.length()-1); } encounteredRightParen = true; return
+			 * new Token("RIGHTPAREN", ")"); }
+			 */
+			// System.out.println("back inside scan after peek!");
+			// if currentToken is a BINOP and we see another illegal BINOP
+			// following it
+			// return the first BINOP and set scan method to return the next
+			// BINOP as well.
+
+			/*
+			 * if (currentToken.equals("+") || currentToken.equals("-") ||
+			 * currentToken.equals("/") || currentToken.equals("*")){
+			 * System.out.println("current Token is special BINOP."); if (next
+			 * == '+' || next == '-' || next == '!'){ lookedAhead = true; }
+			 * //lookedAhead = false;
+			 * System.out.println("Trimming the token to take off the BINOP.");
+			 * currentToken = currentToken.substring(0, currentToken.length());
+			 * //encounteredBINOP = true; return new Token (typeOfToken(),
+			 * currentToken);
+			 * 
+			 * }
+			 */
+
+			if (next == '+' || next == '-' || next == '/' || next == '='
+					|| next == '<' || next == '>' || next == '&' || next == '*'
+					|| next == '!') {
+				System.out
+						.println("Breaking off the token since there's a BINOP attached.");
+				System.out.println("currentToken: " + currentToken);
+				// currentToken = currentToken.substring(0,
+				// currentToken.length()-1);
+				binop = next;
+				encounteredBINOP = true;
+				lookedAhead = true;
+				return new Token(typeOfToken(), currentToken);
+			}
+
 			currentToken += previewedChar;
+
 			System.out.println("currentToken: " + currentToken);
-			if (next != ' ' && next != '\n' && next!= '\r' && next!= '\t') {
+
+			if (next != ' ' && next != '\n' && next != '\r' && next != '\t') {
 				System.out.println("PEEKED AND SAW THAT THERE'S MORE.");
-				//currentToken += previewedChar;
+				// currentToken += previewedChar;
 				while (currentChar == ' ') {
 					nextChar();
 					currentToken += currentChar;
 				}
-				
+
 				if (previewedChar == ';') {
-					System.out.println("semicolon encountered after peeking.....");
-					System.out.println("token length: " + currentToken.length());
+					System.out
+							.println("semicolon encountered after peeking.....");
+					System.out
+							.println("token length: " + currentToken.length());
 					// here is another delimiter
-					// I'll set a global flag so that next time scanner is called a
+					// I'll set a global flag so that next time scanner is
+					// called a
 					// SEMICOLON Token
 					// is returned before looking at any other tokens.
 					// return the token without adding the semicolon to it.
@@ -172,8 +311,8 @@ public class Scanner {
 					encounteredSemicolon = false;
 					return new Token(typeOfToken(), currentToken);
 				}
-				
-			}//end of peek() if statement
+
+			}// end of peek() if statement
 
 			currentToken = currentToken.trim();
 			System.out.println("updated currentToken: " + currentToken);
@@ -187,11 +326,11 @@ public class Scanner {
 			currentChar = ' ';
 			System.out.println("encounteredDot: " + encounteredDot);
 		}
-		
-		if (encounteredDot){
+
+		if (encounteredDot) {
 			encounteredDot = false;
-		  System.out.println("encountered dot resolution");
-		  return new Token("DOT", ".");
+			System.out.println("encountered dot resolution");
+			return new Token("DOT", ".");
 		}
 
 		if (encounteredSemicolon) {
@@ -234,15 +373,16 @@ public class Scanner {
 			encounteredRightBracket = false;
 			return new Token("RIGHTBRACKET", "]");
 		}
-		if (encounteredBINOP){
+		if (encounteredBINOP) {
 			System.out.println("encounteredBINOP: " + encounteredBINOP);
 			encounteredBINOP = false;
-			return new Token("BINOP", ""+binop);
+			return new Token("BINOP", "" + binop);
 		}
 
 		System.out.println("about to enter search mode....");
 		while (true) {
-
+			System.out.println("lookingForFirstCharOfToken: "
+					+ lookingForFirstCharOfToken);
 			while ((currentChar == ' ' || currentChar == '\t'
 					|| currentChar == '\r' || currentChar == '\n')
 					&& lookingForFirstCharOfToken) {
@@ -251,6 +391,7 @@ public class Scanner {
 				nextChar();
 
 			}
+			spaceDelimiter = true;
 			// lookingForFirstCharOfToken = false;
 			System.out.println("currentChar after removing white space: "
 					+ currentChar);
@@ -259,64 +400,6 @@ public class Scanner {
 				System.out.println("Detected EOT. Returning EOT.");
 				return new Token("EOT", "$");
 			}
-
-			// once we enter this part of loop the leading spaces have been
-			// removed.
-			// currentChar should contain 1 valid symbol now.
-			// char next = peek();
-			/*
-			 * if (currentChar == '/' && peek() == '/') {
-			 * System.out.println("Single line comments detected..."); while
-			 * (true) { // pull those comments out of char stream nextChar(); if
-			 * (currentChar == '\n' || currentChar == '\r') { lookedAhead =
-			 * false; previewedChar = ' '; currentChar = ' '; currentToken = "";
-			 * comments = true; lookingForFirstCharOfToken = true; break; } } }
-			 */
-
-			// ///////////////////
-			// multiline comment handling
-			/*
-			 * 
-			 * if (comments == false) { // if we had to do a peek to check for
-			 * single line comment // above. // but it wasn't a comment we have
-			 * a previewedChar hanging in // the balance // if we do another
-			 * peek() we'll lose that symbol if (currentChar == '/' &&
-			 * previewedChar == '*') { lookedAhead = false;
-			 * System.out.println("multiline comment detected..."); // I need a
-			 * flag to see if there was a failed peek while (true) { // pull off
-			 * the character stream until is detected. if (lookedAhead == false)
-			 * { nextChar(); } else { currentChar = previewedChar; } if
-			 * (currentChar == '*') { System.out.println("currentChar is *"); if
-			 * (peek() == '/') { // end of multiline comments lookedAhead =
-			 * false; previewedChar = ' '; currentToken = ""; currentChar = ' ';
-			 * comments = true; lookingForFirstCharOfToken = true; break; } else
-			 * { lookedAhead = false; } // lookedAhead will now be true since we
-			 * peeked. } } } }
-			 * 
-			 * 
-			 * // ///////////////////////////
-			 * 
-			 * // if we saw any type of comments in the file then we will grab a
-			 * // fresh token once // we have exited the comments. if (comments)
-			 * {
-			 * 
-			 * System.out.println("pulling next symbol after comment.");
-			 * //comments = false;
-			 * 
-			 * //here I need to pull of an entire token rather than just a
-			 * symbol
-			 * 
-			 * //pull off any leading spaces while (currentChar == ' ' ||
-			 * currentChar == '\t' || currentChar == '\n' || currentChar ==
-			 * '\r'){ nextChar(); } //grab a token //I should already have the
-			 * first symbol from the above while loop while (currentChar !=
-			 * ' '){ nextChar();
-			 * 
-			 * }
-			 * 
-			 * 
-			 * comments = false; //lookingForFirstCharOfToken = false; }
-			 */
 
 			System.out.println("currentChar after comments block: "
 					+ currentChar);
@@ -330,6 +413,13 @@ public class Scanner {
 				lookingForFirstCharOfToken = false;
 			}
 			// nextChar();
+
+			if (currentChar == '&') {
+				// if this is not followed by another ampersand then is will be
+				// rejected by
+				// isBINOP
+				return new Token(typeOfToken(), currentToken);
+			}
 
 			if (currentChar == ' ') {
 
@@ -361,18 +451,20 @@ public class Scanner {
 				encounteredSemicolon = false;
 				return new Token(typeOfToken(), currentToken);
 			}
-			if (currentChar == '.'){
+			if (currentChar == '.') {
 				System.out.println("dot encountered.");
-				if (currentToken.length() > 1){
+				if (currentToken.length() > 1) {
 					encounteredDot = true;
-					currentToken = (currentToken.substring(0, currentToken.length()-1)).trim();
+					currentToken = (currentToken.substring(0,
+							currentToken.length() - 1)).trim();
 					System.out.println("currentToken: " + currentToken);
-					//return new Token(typeOfToken(), currentToken);
+					// return new Token(typeOfToken(), currentToken);
 				}
 				encounteredDot = true;
 				return new Token(typeOfToken(), currentToken);
 			}
 			if (currentChar == '(') {
+				System.out.println("encountered left paren.");
 				if (currentToken.length() > 1) {
 					encounteredLeftParen = true;
 					currentToken = (currentToken.substring(0,
@@ -390,6 +482,7 @@ public class Scanner {
 				return new Token(typeOfToken(), currentToken);
 			}
 			if (currentChar == ')') {
+				System.out.println("encoutered right paren.");
 				if (currentToken.length() > 1) {
 					encounteredRightParen = true;
 					currentToken = (currentToken.substring(0,
@@ -433,13 +526,30 @@ public class Scanner {
 				}
 				return new Token(typeOfToken(), currentToken);
 			}
-			//recognize BINOPs
+			// recognize BINOPs
 			if (currentChar == '+' || currentChar == '-' || currentChar == '/'
-					|| currentChar == '*'){
+					|| currentChar == '*' || currentChar == '='
+					|| currentChar == '<' || currentChar == '>') {
 				System.out.println("encountered binary operator");
-				if (currentToken.length() > 1){
+
+				// check if this is a valid doubleBINOP. If so then return
+				// doubleBINOP from here.
+				char next = ' ';
+
+				if (currentToken.length() > 1) {
 					encounteredBINOP = true;
-					currentToken = (currentToken.substring(0, currentToken.length()-1)).trim();
+					binop = currentChar;
+					currentToken = (currentToken.substring(0,
+							currentToken.length() - 1)).trim();
+				}
+				return new Token("BINOP", currentToken);
+			}
+			// recognize UNOP
+			if (currentChar == '!' || currentChar == '-') {
+				if (currentToken.length() > 1) {
+					encounteredUNOP = true;
+					currentToken = (currentToken.substring(0,
+							currentToken.length() - 1)).trim();
 				}
 				return new Token(typeOfToken(), currentToken);
 			}
@@ -467,9 +577,16 @@ public class Scanner {
 		// it will then store that value so that it will be encountered next
 		// time scan()
 		// is called.
+
 		int num = 0;
 		try {
 			num = inputStream.read();
+			if (num < 0) {
+				previewedChar = '$';
+				System.out
+						.println("peeking. I see this next: " + previewedChar);
+				return previewedChar;
+			}
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -478,6 +595,7 @@ public class Scanner {
 		System.out.println("peeking. I see this next: " + previewedChar);
 		lookedAhead = true;
 		return previewedChar;
+
 	}
 
 	private String typeOfToken() {
@@ -514,13 +632,30 @@ public class Scanner {
 			return "LEFTBRACKET";
 		} else if (isRightBracket()) {
 			return "RIGHTBRACKET";
+		} else if (isUNOP()) {
+			return "UNOP";
+		} else if (isDoubleBINOP()) {
+			return ("DOUBLEBINOP");
 		} else if (isBINOP()) {
 			return "BINOP";
 		} else if (isSemicolon()) {
 			return "SEMICOLON";
+		} else if (isEOT()) {
+			return "EOT";
 		}
+		// if the sequence of characters is null then we should exit the program
+		// because it means the token is not well formed.
+		System.out.println("No type found for token.");
+		System.exit(4);
 		return null;
 	}// endTypeOfToken()
+
+	private boolean isEOT() {
+		if (currentToken.equals("$")) {
+			return true;
+		}
+		return false;
+	}
 
 	private boolean isClass() {
 		System.out.println("isClass() called...");
@@ -538,19 +673,92 @@ public class Scanner {
 		return false;
 	}
 
+	private boolean isDoubleBINOP() {
+		System.out.println("checking for double BINOP.");
+		System.out.println("lookedAhead: " + lookedAhead);
+
+		char next;
+		// if there was a space separating the two binops then its malformed.
+		/*
+		 * if (currentToken.length() == 1 && spaceDelimiter == true){ return
+		 * false; }
+		 */
+		if (lookedAhead) {
+			next = previewedChar;
+
+		} else {
+			next = peek();
+		}
+
+		System.out.println("currentToken: " + currentToken);
+		System.out.println("next: " + next);
+
+		if (currentToken.equals("=") && next == '=') {
+			currentToken += next;
+			lookedAhead = false;
+			return true;
+		} else if (currentToken.equals("<") && next == '=') {
+			currentToken += next;
+			lookedAhead = false;
+			return true;
+		} else if (currentToken.equals(">") && next == '=') {
+			currentToken += next;
+			lookedAhead = false;
+			return true;
+		} else if (currentToken.equals("!") && next == '=') {
+			System.out.println("DOUBLE BINOP DETECTED.");
+			currentToken += next;
+			System.out.println("currentToken: " + currentToken);
+			lookedAhead = false;
+			return true;
+		}
+		return false;
+	}
+
+	private boolean isUNOP() {
+		System.out.println("inside UNOP");
+		if (currentToken.equals("!") || currentToken.equals("-")) {
+			return true;
+		}
+		return false;
+	}
+
 	private boolean isBINOP() {
 		System.out.println("inside BINOP");
+		System.out.println("lookedAhead: " + lookedAhead);
+		System.out.println("currentToken: " + currentToken);
 		boolean starterIsFine = false;
 
 		if (currentToken.equals("<") || currentToken.equals(">")
 				|| currentToken.equals("=") || currentToken.equals("!")
 				|| currentToken.equals("&") || currentToken.equals("|")
-				|| currentToken.equals("+") || currentToken.equals("-")) {
+				|| currentToken.equals("+") || currentToken.equals("-")
+				|| currentToken.equals("*") || currentToken.equals("||")) {
 			starterIsFine = true;
+			System.out.println("starter is fine.");
 		}
 
 		if (starterIsFine) {
-			char next = peek();
+
+			char next;
+			if (lookedAhead) {
+				next = previewedChar;
+			} else {
+				System.out.println("about to take a peek in else of BINOP.");
+				next = peek();
+			}
+
+			System.out.println("starter is fine. next: " + next);
+
+			if (currentToken.equals("||")) {
+				return true;
+			}
+			if (currentToken.equals("&") && next != '&') {
+				// throw an error here since this char is only valid when it
+				// comes in pair.
+				System.out.println("Scanner Error. Malformed BINOP");
+				System.exit(4);
+			}
 			if (currentToken.equals("&") && next == '&') {
 				// here we should peek at the next character to see if it is an
 				// & sign.
@@ -559,10 +767,13 @@ public class Scanner {
 				// false.
 				// return true only if there are two ampersands back to back
 				currentToken = "&&";
+				System.out.println("currentToken from BINOP: " + currentToken);
 				lookedAhead = false;
 				return true;
 			} else if (currentToken.equals("<") || currentToken.equals(">")
 					|| currentToken.equals("=")) {
+
+				System.out.println("handling currentToken is: " + currentToken);
 				// again this is a situation to peek at the next character to
 				// see if it is an equal sign
 				// if yes, currentToken should be modified to be the
@@ -570,10 +781,10 @@ public class Scanner {
 				// false.
 				// return true regardless of whether or not the previewed
 				// character was a match.
-				if (next == '=') {
-					currentToken = currentToken + previewedChar;
-					lookedAhead = false;
-				}
+				/*
+				 * if (next == '=') { currentToken = currentToken +
+				 * previewedChar; lookedAhead = false; }
+				 */
 				return true;
 
 			} else if (currentToken.equals("|") && next == '|') {
@@ -594,7 +805,20 @@ public class Scanner {
 				}
 				return false;
 
-			} else if (currentToken.equals("+") || currentToken.equals("-")) {
+			} else if (currentToken.equals("+") || currentToken.equals("-")
+					|| currentToken.equals("/") || currentToken.equals("*")) {
+				System.out.println("first token is " + currentToken);
+				System.out.println("Second token is " + next);
+				// I don't think there is any binop that can come after any of
+				// these in minijava
+				if (next == '!' || next == '+' || next == '-' || next == '*'
+						|| next == '/' || next == '&' || next == '>'
+						|| next == '<') {
+					System.out
+							.println("ill formed token sequence. terminating.");
+					System.exit(4);
+				}
+
 				return true;
 			}
 		}// end outer if
@@ -602,7 +826,7 @@ public class Scanner {
 		System.out.println("previewedChar: " + previewedChar);
 		System.out.println("lookedAhead: " + lookedAhead);
 		// System.exit(0);
-
+		System.out.println("end of isBINOP.");
 		return false;
 	}
 
@@ -622,8 +846,10 @@ public class Scanner {
 
 	private boolean isTrue() {
 		if (currentToken.equals("true")) {
+
 			return true;
 		}
+
 		return false;
 	}
 
@@ -691,7 +917,9 @@ public class Scanner {
 	}
 
 	private boolean isLeftBracket() {
+
 		if (currentToken.equals("[")) {
+			System.out.println("inside isLeftBracket returning true.");
 			return true;
 		}
 		return false;
