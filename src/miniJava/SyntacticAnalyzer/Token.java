@@ -3,8 +3,8 @@ package miniJava.SyntacticAnalyzer;
 public class Token {
 	
 	//data members
-	String type;
-	String spelling;
+	public String type;
+	public String spelling;
 	
 
 	

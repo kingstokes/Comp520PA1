@@ -219,48 +219,7 @@ public class Scanner {
 				return new Token("UNOP", "!");
 			}
 
-			/*
-			 * if (currentToken.equals("[")){
-			 * System.out.println("scanner returning leftbracket token"); if
-			 * (currentToken.length() > 1){ currentToken =
-			 * currentToken.substring(0, currentToken.length()-1); }
-			 * encounteredLeftBracket = true; return new Token("LEFTBRACKET",
-			 * "["); }
-			 * 
-			 * if (currentToken.equals("]")){ if (currentToken.length() > 1){
-			 * currentToken = currentToken.substring(0,
-			 * currentToken.length()-1); } encounteredRightBracket = true;
-			 * return new Token("RIGHTBRACKET", "]"); }
-			 * 
-			 * if (currentToken.equals("(")){ if (currentToken.length() > 1){
-			 * currentToken = currentToken.substring(0,
-			 * currentToken.length()-1); } encounteredLeftParen = true; return
-			 * new Token("LEFTPAREN", "("); }
-			 * 
-			 * if (currentToken.equals(")")){ if (currentToken.length() > 1){
-			 * currentToken = currentToken.substring(0,
-			 * currentToken.length()-1); } encounteredRightParen = true; return
-			 * new Token("RIGHTPAREN", ")"); }
-			 */
-			// System.out.println("back inside scan after peek!");
-			// if currentToken is a BINOP and we see another illegal BINOP
-			// following it
-			// return the first BINOP and set scan method to return the next
-			// BINOP as well.
-
-			/*
-			 * if (currentToken.equals("+") || currentToken.equals("-") ||
-			 * currentToken.equals("/") || currentToken.equals("*")){
-			 * System.out.println("current Token is special BINOP."); if (next
-			 * == '+' || next == '-' || next == '!'){ lookedAhead = true; }
-			 * //lookedAhead = false;
-			 * System.out.println("Trimming the token to take off the BINOP.");
-			 * currentToken = currentToken.substring(0, currentToken.length());
-			 * //encounteredBINOP = true; return new Token (typeOfToken(),
-			 * currentToken);
-			 * 
-			 * }
-			 */
+			
 
 			if (next == '+' || next == '-' || next == '/' || next == '='
 					|| next == '<' || next == '>' || next == '&' || next == '*'
