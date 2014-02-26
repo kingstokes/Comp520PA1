@@ -47,20 +47,19 @@ public class Scanner {
 		System.out.println("ignoreMultiLineComment called...");
 		int num = 0;
 		while (removingComments) {
-				try {
-					num = inputStream.read();
-					if (num < 0) {
-						num = '$';
-						eot = true;
-						break;
-					}
-				} catch (IOException e) {
-					e.printStackTrace();
+			try {
+				num = inputStream.read();
+				if (num < 0) {
+					num = '$';
+					eot = true;
+					break;
 				}
-				pluckedChar = (char) num;
-				System.out.println("pluckedChar: " + pluckedChar);
-				System.out.println("lookedAhead: " + lookedAhead);
-			
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			pluckedChar = (char) num;
+			System.out.println("pluckedChar: " + pluckedChar);
+			System.out.println("lookedAhead: " + lookedAhead);
 
 			// System.out.println("");
 			if (pluckedChar == '*') {
@@ -79,24 +78,25 @@ public class Scanner {
 					lookedAhead = false;
 					currentChar = ' ';
 					break;
-				} else if (next == '*'){
+				} else if (next == '*') {
 					System.out.println("next is a star!!");
-				   while (next == '*'){
-					   next = peek();
-					   if (next == '/'){
-						   System.out.println("peeked and found slash after star.");
-						   removingComments = false;
-						   lookingForFirstCharOfToken = true;
-						   previewedChar = ' ';
-						   lookedAhead = false;
-						   currentChar = ' ';
-						   break;
-					   }
-				   
-				   }
-						   
+					while (next == '*') {
+						next = peek();
+						if (next == '/') {
+							System.out
+									.println("peeked and found slash after star.");
+							removingComments = false;
+							lookingForFirstCharOfToken = true;
+							previewedChar = ' ';
+							lookedAhead = false;
+							currentChar = ' ';
+							break;
+						}
+
+					}
+
 				}
-			} 
+			}
 		}// end while loop
 	}// end of method
 
@@ -219,8 +219,6 @@ public class Scanner {
 				return new Token("UNOP", "!");
 			}
 
-			
-
 			if (next == '+' || next == '-' || next == '/' || next == '='
 					|| next == '<' || next == '>' || next == '&' || next == '*'
 					|| next == '!') {
@@ -334,6 +332,7 @@ public class Scanner {
 		}
 		if (encounteredBINOP) {
 			System.out.println("encounteredBINOP: " + encounteredBINOP);
+			
 			encounteredBINOP = false;
 			return new Token("BINOP", "" + binop);
 		}
@@ -490,7 +489,9 @@ public class Scanner {
 					|| currentChar == '*' || currentChar == '='
 					|| currentChar == '<' || currentChar == '>') {
 				System.out.println("encountered binary operator");
-
+				System.out.println("currentToken: " + currentToken);
+				
+				
 				// check if this is a valid doubleBINOP. If so then return
 				// doubleBINOP from here.
 				char next = ' ';
@@ -599,6 +600,8 @@ public class Scanner {
 			return "BINOP";
 		} else if (isSemicolon()) {
 			return "SEMICOLON";
+		} else if (isDOT()) {
+			return "DOT";
 		} else if (isEOT()) {
 			return "EOT";
 		}
@@ -642,34 +645,81 @@ public class Scanner {
 		 * if (currentToken.length() == 1 && spaceDelimiter == true){ return
 		 * false; }
 		 */
-		if (lookedAhead) {
-			next = previewedChar;
-
-		} else {
-			next = peek();
-		}
+		/*
+		 * if (lookedAhead) { next = previewedChar;
+		 * 
+		 * } else { next = peek(); }
+		 */
 
 		System.out.println("currentToken: " + currentToken);
-		System.out.println("next: " + next);
+		// System.out.println("next: " + next);
 
-		if (currentToken.equals("=") && next == '=') {
-			currentToken += next;
-			lookedAhead = false;
-			return true;
-		} else if (currentToken.equals("<") && next == '=') {
-			currentToken += next;
-			lookedAhead = false;
-			return true;
-		} else if (currentToken.equals(">") && next == '=') {
-			currentToken += next;
-			lookedAhead = false;
-			return true;
-		} else if (currentToken.equals("!") && next == '=') {
-			System.out.println("DOUBLE BINOP DETECTED.");
-			currentToken += next;
-			System.out.println("currentToken: " + currentToken);
-			lookedAhead = false;
-			return true;
+		if (currentToken.equals("=")) {
+
+			if (lookedAhead) {
+				next = previewedChar;
+
+			} else {
+				next = peek();
+			}
+
+			if (next == '=') {
+				currentToken += next;
+				lookedAhead = false;
+				return true;
+			} else
+				return false;
+
+		} else if (currentToken.equals("<")) {
+
+			if (lookedAhead) {
+				next = previewedChar;
+
+			} else {
+				next = peek();
+			}
+
+			if (next == '=') {
+				currentToken += next;
+				lookedAhead = false;
+				return true;
+			} else
+				return false;
+
+		} else if (currentToken.equals(">")) {
+
+			if (lookedAhead) {
+				next = previewedChar;
+
+			} else {
+				next = peek();
+			}
+
+			if (next == '=') {
+				currentToken += next;
+				lookedAhead = false;
+				return true;
+			} else
+				return false;
+
+		} else if (currentToken.equals("!")) {
+
+			if (lookedAhead) {
+				next = previewedChar;
+
+			} else {
+				next = peek();
+			}
+
+			if (next == '=') {
+				System.out.println("DOUBLE BINOP DETECTED.");
+				currentToken += next;
+				System.out.println("currentToken: " + currentToken);
+				lookedAhead = false;
+				return true;
+			} else
+				return false;
+
 		}
 		return false;
 	}
@@ -682,12 +732,21 @@ public class Scanner {
 		return false;
 	}
 
+	private boolean isDOT() {
+		if (currentToken.equals(".")) {
+			encounteredDot = false;
+			return true;
+		}
+		return false;
+	}
+
 	private boolean isBINOP() {
 		System.out.println("inside BINOP");
 		System.out.println("lookedAhead: " + lookedAhead);
 		System.out.println("currentToken: " + currentToken);
 		boolean starterIsFine = false;
-
+		
+		
 		if (currentToken.equals("<") || currentToken.equals(">")
 				|| currentToken.equals("=") || currentToken.equals("!")
 				|| currentToken.equals("&") || currentToken.equals("|")
@@ -740,10 +799,12 @@ public class Scanner {
 				// false.
 				// return true regardless of whether or not the previewed
 				// character was a match.
-				/*
-				 * if (next == '=') { currentToken = currentToken +
-				 * previewedChar; lookedAhead = false; }
-				 */
+
+				/*if (next == '=') {
+					currentToken = currentToken + previewedChar;
+					lookedAhead = false;
+				}*/
+
 				return true;
 
 			} else if (currentToken.equals("|") && next == '|') {

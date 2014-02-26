@@ -77,6 +77,7 @@ public class Parser {
 		token = scanner.scan();
 		System.out.println("first token type returned: " + token.type);
 		parseProgram();
+		System.exit(0);
 	}
 
 	// parse from the start symbol 'Program ::= (ClassDeclaration)* eot
@@ -132,7 +133,9 @@ public class Parser {
 				System.out.println("after the last brace in empty class.");
 				if (token.type.equals("EOT")) {
 					System.out.println("Valid Source File (Empty class).");
-					System.exit(0);
+					ClassDecl cd = new ClassDecl(identifierAST.spelling, fdl, mdl, null);
+					System.out.println("identifier spelling: " + token.spelling);
+					return cd;
 				} else {
 					// throw error if there is something other than EOT or
 					// comment after closing brace
@@ -393,149 +396,32 @@ public class Parser {
 			System.out.println("id detected in parseStatement()!!");
 			// accept the identifier so we can look further down the token
 			// stream.
-			id = parseIdentifier();
-			// we may be looking at either leftbracket; equal sign; a dot; or
-			// left paren
-			// the only way it could possibly be a Type is if we see [] after
-			// the id.
-			// anything else should be parsed as a reference.
-
-			if (token.type.equals("LEFTBRACKET")) {
+			
+			//id = parseIdentifier();
+			
+			//instead of parsing identifier, since the only thing starting with an identifier is
+			//a reference I'll call parseReference.
+			System.out.println("In parse statement: about to call parse reference!!");
+			ref = parseReference();
+			//the next thing we see will be either equal sign or left paren
+			if (token.spelling.equals("=")){
 				acceptIt();
-				if (token.type.equals("RIGHTBRACKET")) {
-					// we have a Type token. ArrayType --> ClassType
-					// create object for it and then accept right bracket.
-					acceptIt();
-					ClassType ct = new ClassType(id, null);
-					type = new ArrayType(ct, null);
-
-					// after the Type should be id = Expression;
-					Identifier id2 = parseIdentifier();
-					if (token.spelling.equals("=")) {
-						acceptIt();
-					} else {
-						System.out.println("Error. Expecting equals sign.");
-						System.exit(4);
-					}
-					expr = parseExpression();
-					accept("SEMICOLON");
-					vd = new VarDecl(type, id2.spelling, null);
-					statement = new VarDeclStmt(vd, expr, null);
-					// sl.add(statement);
-					return statement;
-
-				} else {
-					// if we see the left bracket after identifier and we end up
-					// here its of the type
-					// id[Expression] where id has already been parsed & left
-					// bracket has been accepted.
-					ref = new IdRef(id, null);
-					expr = parseExpression();
-					accept("RIGHTBRACKET");
-					// ref = new IndexedRef();
-					// here we could be looking at a dot or equal sign or left
-					// paren.
-					// actual statement is of the form: Reference = Expression;
-					// OR Reference (ArgumentList?);
-					if (token.spelling.equals(".")) {
-						acceptIt();
-						id = parseIdentifier();
-						if (token.spelling.equals("[")) {
-							acceptIt();
-							expr = parseExpression();
-							accept("RIGHTBRACKET");
-						}
-						// reference is parsed for case where there was a dot
-						// after right bracket.
-						ref = new IndexedRef(ref, expr, null);
-						if (token.spelling.equals("=")) {
-							acceptIt();
-							System.out.println("spotted equal sign!!");
-							expr = parseExpression();
-							accept("SEMICOLON");
-							statement = new AssignStmt(ref, expr, null);
-
-							return statement;
-						} else if (token.spelling.equals("(")) {
-							acceptIt();
-							el = parseArgumentList();
-							accept("RIGHTPAREN");
-							accept("SEMICOLON");
-							statement = new CallStmt(ref, el, null);
-							return statement;
-						}
-
-					} else if (token.spelling.equals("=")) {
-						// equal sign after right bracket in reference
-						acceptIt();
-						expr = parseExpression();
-						accept("SEMICOLON");
-						statement = new AssignStmt(ref, expr, null);
-						return statement;
-					} else if (token.spelling.equals("(")) {
-						// left paren after right bracket in reference
-						acceptIt();
-						el = parseArgumentList();
-						accept("RIGHTPAREN");
-						accept("SEMICOLON");
-						statement = new CallStmt(ref, el, null);
-						return statement;
-					} else {
-						// throw error if after right bracket we don't see a
-						// valid symbol.
-						System.out
-								.println("invalid symbol after right bracket of Reference.");
-						System.exit(4);
-					}
-				}
-			} else {
-				// if we saw an identifier but it's not followed by left bracket
-				// this is a Reference
-
-				ref = new IdRef(id, null);
-
-				// note that identifier has already been parsed when we get
-				// here.
-				// could be followed by a dot, equals sign, or left paren
-				if (token.spelling.equals(".")) {
-					acceptIt();
-					id = parseIdentifier();
-					if (token.spelling.equals("[")) {
-						acceptIt();
-						expr = parseExpression();
-						accept("RIGHTBRACKET");
-					}
-					if (token.spelling.equals("=")) {
-						acceptIt();
-						expr = parseExpression();
-						accept("SEMICOLON");
-
-						statement = new AssignStmt(ref, expr, null);
-						return statement;
-					} else if (token.spelling.equals("(")) {
-						acceptIt();
-						el = parseArgumentList();
-						accept("RIGHTPAREN");
-						accept("SEMICOLON");
-						statement = new CallStmt(ref, el, null);
-						return statement;
-					}
-				} else if (token.spelling.equals("=")) {
-					acceptIt();
-					expr = parseExpression();
-					accept("SEMICOLON");
-					statement = new AssignStmt(ref, expr, null);
-					return statement;
-				} else if (token.spelling.equals("(")) {
-					acceptIt();
-					el = parseArgumentList();
-					accept("RIGHTPAREN");
-					accept("SEMICOLON");
-					statement = new CallStmt(ref, el, null);
-					return statement;
-				}
-
+				expr = parseExpression();
+				accept("SEMICOLON");
+				statement = new AssignStmt(ref, expr, null);
+				return statement;
+			} else if (token.type.equals("LEFTPAREN")){
+				acceptIt();
+				ExprList exprList = parseArgumentList();
+				accept("RIGHTPAREN");
+				accept("SEMICOLON");
+				statement = new CallStmt(ref, exprList, null);
+				return statement;
 			}
+			
+			
+			
+			
 
 		} else if (token.spelling.equals("int")
 				|| token.spelling.equals("boolean")
@@ -584,11 +470,14 @@ public class Parser {
 			accept("LEFTPAREN");
 			expr = parseExpression();
 			accept("RIGHTPAREN");
-
+			System.out.println("token spelling: " + token.spelling);
+			
 			Statement statement1 = parseStatement();
 			Statement statement2 = null;
 			if (token.spelling.equals("else")) {
 				System.out.println("ELSE STATEMENT DETECTED!!");
+				System.out.println("token spelling: " + token.spelling);
+				//System.exit(0);
 				acceptIt();
 				statement2 = parseStatement();
 			}
@@ -718,7 +607,7 @@ public class Parser {
 		System.out.println("PARSE EXPRESSION CALLED!!!!");
 
 		Expression expr = parseE();
-		el.add(expr);
+		//el.add(expr);
 		return expr;
 
 	}// end of parseExpression() method.
@@ -749,6 +638,7 @@ public class Parser {
 
 	private Expression parseC() {
 		Expression expr = parseQ();
+		
 		while (token.spelling.equals("==") || token.spelling.equals("!=")) {
 			Token t = new Token(token.type, token.spelling);
 			Operator op = new Operator(t, null);
@@ -925,6 +815,7 @@ public class Parser {
 
 		Expression arg = parseExpression();
 		el.add(arg);
+		
 		while (token.spelling.equals(",")) {
 			acceptIt();
 			arg = parseExpression();
@@ -942,14 +833,17 @@ public class Parser {
 		// if next symbol is a '.' then accept it and parse another base ref
 		// else we're done
 		Reference baseRef = parseBaseRef();
-
+		System.out.println("token name before accepting: " + token.spelling);
 		if (token.spelling.equals(".")) {
 			System.out.println("accepting dot in parseReference()...");
-			acceptIt();
+			accept("DOT");
+			System.out.println("testing token name: " + token.spelling);
+			//System.exit(0);
 			Identifier id = parseIdentifier();
 			if (token.spelling.equals("[")) {
 				System.out
 						.println("accepting [ after identifier in parseReference....");
+				
 				acceptIt();
 				Expression expr = parseExpression();
 				accept("RIGHTBRACKET");
@@ -1137,7 +1031,9 @@ public class Parser {
 								// accept source file.
 								System.out
 										.println("eot at end of single line comment. Valid Source File.");
-								System.exit(0);
+								System.out.println("token spelling: " + token.spelling);
+								
+								//System.exit(0);
 							}
 
 						} else if (next == '*') {
@@ -1149,7 +1045,7 @@ public class Parser {
 								// accept source file.
 								System.out
 										.println("eot at end of mult line comment. Valid Source File.");
-								System.exit(0);
+								//System.exit(0);
 							}
 						}
 					} else if (next == '$') {
