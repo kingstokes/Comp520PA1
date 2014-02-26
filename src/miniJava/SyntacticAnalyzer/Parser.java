@@ -1,10 +1,15 @@
 package miniJava.SyntacticAnalyzer;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import miniJava.AbstractSyntaxTrees.ASTDisplay;
 import miniJava.AbstractSyntaxTrees.ArrayType;
 import miniJava.AbstractSyntaxTrees.AssignStmt;
 import miniJava.AbstractSyntaxTrees.BaseType;
+import miniJava.AbstractSyntaxTrees.BinaryExpr;
 import miniJava.AbstractSyntaxTrees.BlockStmt;
+import miniJava.AbstractSyntaxTrees.BooleanLiteral;
 import miniJava.AbstractSyntaxTrees.CallStmt;
 import miniJava.AbstractSyntaxTrees.ClassDecl;
 import miniJava.AbstractSyntaxTrees.ClassDeclList;
@@ -18,19 +23,28 @@ import miniJava.AbstractSyntaxTrees.IdRef;
 import miniJava.AbstractSyntaxTrees.Identifier;
 import miniJava.AbstractSyntaxTrees.IfStmt;
 import miniJava.AbstractSyntaxTrees.IndexedRef;
+import miniJava.AbstractSyntaxTrees.IntLiteral;
+import miniJava.AbstractSyntaxTrees.Literal;
+import miniJava.AbstractSyntaxTrees.LiteralExpr;
 import miniJava.AbstractSyntaxTrees.MemberDecl;
 import miniJava.AbstractSyntaxTrees.MethodDecl;
 import miniJava.AbstractSyntaxTrees.MethodDeclList;
+import miniJava.AbstractSyntaxTrees.NewArrayExpr;
+import miniJava.AbstractSyntaxTrees.NewObjectExpr;
+import miniJava.AbstractSyntaxTrees.Operator;
 import miniJava.AbstractSyntaxTrees.Package;
 import miniJava.AbstractSyntaxTrees.ParameterDecl;
 import miniJava.AbstractSyntaxTrees.ParameterDeclList;
 import miniJava.AbstractSyntaxTrees.QualifiedRef;
+import miniJava.AbstractSyntaxTrees.RefExpr;
 import miniJava.AbstractSyntaxTrees.Reference;
 import miniJava.AbstractSyntaxTrees.Statement;
 import miniJava.AbstractSyntaxTrees.StatementList;
+import miniJava.AbstractSyntaxTrees.Terminal;
 import miniJava.AbstractSyntaxTrees.ThisRef;
 import miniJava.AbstractSyntaxTrees.Type;
 import miniJava.AbstractSyntaxTrees.TypeKind;
+import miniJava.AbstractSyntaxTrees.UnaryExpr;
 import miniJava.AbstractSyntaxTrees.VarDecl;
 import miniJava.AbstractSyntaxTrees.VarDeclStmt;
 import miniJava.AbstractSyntaxTrees.WhileStmt;
@@ -49,6 +63,7 @@ public class Parser {
 	private StatementList sl = new StatementList();
 	private ParameterDeclList pdl = new ParameterDeclList();
 	private ExprList el = new ExprList();
+	private char binop = 0;
 
 	// constructor
 	public Parser(Scanner scanner) {
@@ -66,14 +81,18 @@ public class Parser {
 
 	// parse from the start symbol 'Program ::= (ClassDeclaration)* eot
 	private Package parseProgram() {
+
 		System.out.println("Parse Program called.");
 		// here is where I think the Package object should be created
 		// which is the top level AST for the entire program.
 		// this method will return a package AST
 		Package pkg = new Package(cdl, null);
-		Declaration cd = parseClassDeclaration();
-		cdl.add((ClassDecl) cd);
-
+		
+		while (!token.spelling.equals("$")) {
+			Declaration cd = parseClassDeclaration();
+			cdl.add((ClassDecl) cd);
+		}
+		//cdl.add((ClassDecl) cd);
 		ASTDisplay display = new ASTDisplay();
 		// display.visitClassDecl(cd, ".  ");
 		display.showTree(pkg);
@@ -159,6 +178,8 @@ public class Parser {
 					System.out.println("Valid Source File.");
 					return cd;
 
+				} else if (token.type.equals("class")) {
+					return cd;
 				} else {
 					// throw an error.
 					System.out.println("Expecting EOT.");
@@ -267,7 +288,7 @@ public class Parser {
 		// create a parameter Declaration to return
 		ParameterDecl pd = null;
 		// create a list to store all parameter declarations in.
-		//ParameterDeclList pdl = new ParameterDeclList();
+		// ParameterDeclList pdl = new ParameterDeclList();
 		Identifier id = null;
 		while (true) {
 			System.out.println("Parsing Parameter List");
@@ -320,7 +341,10 @@ public class Parser {
 	}// end of method parseParameterList()
 
 	private Statement parseStatement() {
-		//Statement class is abstract
+
+		System.out
+				.println("PARSE STATEMENT CALLED!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+		// Statement class is abstract
 		Statement statement = null;
 		Statement elseStatement = null;
 		Type type = null;
@@ -329,30 +353,65 @@ public class Parser {
 		Expression expr = null;
 		VarDecl vd = null;
 		Reference ref = null;
-		
-		//handle the cases of Type id = Expression;
-		//Reference = Expression; & Reference(ArgumentList?)
-		//they all have very similar starters if we're looking at an initial identifier.
-		
-		if (token.type.equals("IDENTIFIER")){
-			//accept the identifier so we can look further down the token stream.
+
+		// handle the cases of Type id = Expression;
+		// Reference = Expression; & Reference(ArgumentList?)
+		// they all have very similar starters if we're looking at an initial
+		// identifier.
+
+		if (token.spelling.equals("int") || token.spelling.equals("boolean")
+				|| token.spelling.equals("void")) {
+			// handle Type id = Expression; PrimTypes
+			// could also be int[] in which case its an ArrType
+			type = parseType();
+			// now we have either a primtype or arraytype.
 			id = parseIdentifier();
-			//we may be looking at either leftbracket; equal sign; a dot; or left paren
-			//the only way it could possibly be a Type is if we see [] after the id.
-			//anything else should be parsed as a reference.
-			
-			if (token.type.equals("LEFTBRACKET")){
+			if (token.spelling.equals("=")) {
 				acceptIt();
-				if (token.type.equals("RIGHTBRACKET")){
-					//we have a Type token. ArrayType --> ClassType
-					//create object for it and then accept right bracket.
+			} else {
+				System.out
+						.println("Error. Expecting equal sign after Type id...");
+				System.exit(4);
+			}
+			System.out
+					.println("about to call parseExpression from parseStatement!!");
+			// System.exit(0);
+			expr = parseExpression();
+			accept("SEMICOLON");
+
+			vd = new VarDecl(type, id.spelling, null);
+			statement = new VarDeclStmt(vd, expr, null);
+			// sl.add(statement);
+			System.out
+					.println("about to return the Type id = Expression statement from parseStatement()");
+
+			return statement;
+		}
+
+		if (token.type.equals("IDENTIFIER") && !token.spelling.equals("if")
+				&& !token.spelling.equals("while")) {
+			System.out.println("id detected in parseStatement()!!");
+			// accept the identifier so we can look further down the token
+			// stream.
+			id = parseIdentifier();
+			// we may be looking at either leftbracket; equal sign; a dot; or
+			// left paren
+			// the only way it could possibly be a Type is if we see [] after
+			// the id.
+			// anything else should be parsed as a reference.
+
+			if (token.type.equals("LEFTBRACKET")) {
+				acceptIt();
+				if (token.type.equals("RIGHTBRACKET")) {
+					// we have a Type token. ArrayType --> ClassType
+					// create object for it and then accept right bracket.
 					acceptIt();
 					ClassType ct = new ClassType(id, null);
 					type = new ArrayType(ct, null);
-					
-					//after the Type should be id = Expression;
+
+					// after the Type should be id = Expression;
 					Identifier id2 = parseIdentifier();
-					if (token.spelling.equals("=")){
+					if (token.spelling.equals("=")) {
 						acceptIt();
 					} else {
 						System.out.println("Error. Expecting equals sign.");
@@ -362,34 +421,42 @@ public class Parser {
 					accept("SEMICOLON");
 					vd = new VarDecl(type, id2.spelling, null);
 					statement = new VarDeclStmt(vd, expr, null);
+					// sl.add(statement);
 					return statement;
-					
+
 				} else {
-					//if we see the left bracket after identifier and we end up here its of the type
-					//id[Expression] where id has already been parsed & left bracket has been accepted.
+					// if we see the left bracket after identifier and we end up
+					// here its of the type
+					// id[Expression] where id has already been parsed & left
+					// bracket has been accepted.
 					ref = new IdRef(id, null);
 					expr = parseExpression();
 					accept("RIGHTBRACKET");
-					//ref = new IndexedRef();
-					//here we could be looking at a dot or equal sign or left paren.
-					//actual statement is of the form: Reference = Expression; OR Reference (ArgumentList?);
-					if (token.spelling.equals(".")){
+					// ref = new IndexedRef();
+					// here we could be looking at a dot or equal sign or left
+					// paren.
+					// actual statement is of the form: Reference = Expression;
+					// OR Reference (ArgumentList?);
+					if (token.spelling.equals(".")) {
 						acceptIt();
 						id = parseIdentifier();
-						if (token.spelling.equals("[")){
+						if (token.spelling.equals("[")) {
 							acceptIt();
 							expr = parseExpression();
 							accept("RIGHTBRACKET");
 						}
-						//reference is parsed for case where there was a dot after right bracket.
+						// reference is parsed for case where there was a dot
+						// after right bracket.
 						ref = new IndexedRef(ref, expr, null);
-						if (token.spelling.equals("=")){
+						if (token.spelling.equals("=")) {
 							acceptIt();
+							System.out.println("spotted equal sign!!");
 							expr = parseExpression();
 							accept("SEMICOLON");
 							statement = new AssignStmt(ref, expr, null);
+
 							return statement;
-						} else if (token.spelling.equals("(")){
+						} else if (token.spelling.equals("(")) {
 							acceptIt();
 							el = parseArgumentList();
 							accept("RIGHTPAREN");
@@ -397,19 +464,16 @@ public class Parser {
 							statement = new CallStmt(ref, el, null);
 							return statement;
 						}
-						
-						
-						
-						
-					} else if (token.spelling.equals("=")){
-						//equal sign after right bracket in reference
+
+					} else if (token.spelling.equals("=")) {
+						// equal sign after right bracket in reference
 						acceptIt();
 						expr = parseExpression();
 						accept("SEMICOLON");
 						statement = new AssignStmt(ref, expr, null);
 						return statement;
-					} else if (token.spelling.equals("(")){
-						//left paren after right bracket in reference
+					} else if (token.spelling.equals("(")) {
+						// left paren after right bracket in reference
 						acceptIt();
 						el = parseArgumentList();
 						accept("RIGHTPAREN");
@@ -417,35 +481,38 @@ public class Parser {
 						statement = new CallStmt(ref, el, null);
 						return statement;
 					} else {
-						//throw error if after right bracket we don't see a valid symbol.
-						System.out.println("invalid symbol after right bracket of Reference.");
+						// throw error if after right bracket we don't see a
+						// valid symbol.
+						System.out
+								.println("invalid symbol after right bracket of Reference.");
 						System.exit(4);
 					}
 				}
 			} else {
-				//if we saw an identifier but it's not followed by left bracket
-				//this is a Reference
-				
+				// if we saw an identifier but it's not followed by left bracket
+				// this is a Reference
+
 				ref = new IdRef(id, null);
-				
-				//note that identifier has already been parsed when we get here.
-				//could be followed by a dot, equals sign, or left paren
-				if (token.spelling.equals(".")){
+
+				// note that identifier has already been parsed when we get
+				// here.
+				// could be followed by a dot, equals sign, or left paren
+				if (token.spelling.equals(".")) {
 					acceptIt();
 					id = parseIdentifier();
-					if (token.spelling.equals("[")){
+					if (token.spelling.equals("[")) {
 						acceptIt();
 						expr = parseExpression();
 						accept("RIGHTBRACKET");
 					}
-					if (token.spelling.equals("=")){
+					if (token.spelling.equals("=")) {
 						acceptIt();
 						expr = parseExpression();
 						accept("SEMICOLON");
-						
+
 						statement = new AssignStmt(ref, expr, null);
 						return statement;
-					} else if (token.spelling.equals("(")){
+					} else if (token.spelling.equals("(")) {
 						acceptIt();
 						el = parseArgumentList();
 						accept("RIGHTPAREN");
@@ -453,13 +520,13 @@ public class Parser {
 						statement = new CallStmt(ref, el, null);
 						return statement;
 					}
-				} else if (token.spelling.equals("=")){
+				} else if (token.spelling.equals("=")) {
 					acceptIt();
 					expr = parseExpression();
 					accept("SEMICOLON");
 					statement = new AssignStmt(ref, expr, null);
 					return statement;
-				} else if (token.spelling.equals("(")){
+				} else if (token.spelling.equals("(")) {
 					acceptIt();
 					el = parseArgumentList();
 					accept("RIGHTPAREN");
@@ -467,41 +534,42 @@ public class Parser {
 					statement = new CallStmt(ref, el, null);
 					return statement;
 				}
-				
+
 			}
-			
-			
-		} else if (token.spelling.equals("int") || token.spelling.equals("boolean")
-				|| token.spelling.equals("void")){
-			//handle Type id = Expression; PrimTypes
-			//could also be int[] in which case its an ArrType
-				type = parseType();
-				//now we have either a primtype or arraytype.
-				id = parseIdentifier();
-				if (token.spelling.equals("=")){
-					acceptIt();
-				} else {
-					System.out.println("Error. Expecting equal sign after Type id...");
-					System.exit(4);
-				}
-				expr = parseExpression();
-				accept("SEMICOLON");
-				
-				vd = new VarDecl(type, id.spelling, null);
-				statement = new VarDeclStmt(vd, expr, null);
-				return statement;
-		} else if(token.spelling.equals("this")){
+
+		} else if (token.spelling.equals("int")
+				|| token.spelling.equals("boolean")
+				|| token.spelling.equals("void")) {
+			// handle Type id = Expression; PrimTypes
+			// could also be int[] in which case its an ArrType
+			type = parseType();
+			// now we have either a primtype or arraytype.
+			id = parseIdentifier();
+			if (token.spelling.equals("=")) {
+				acceptIt();
+			} else {
+				System.out
+						.println("Error. Expecting equal sign after Type id...");
+				System.exit(4);
+			}
+			expr = parseExpression();
+			accept("SEMICOLON");
+
+			vd = new VarDecl(type, id.spelling, null);
+			statement = new VarDeclStmt(vd, expr, null);
+			return statement;
+		} else if (token.spelling.equals("this")) {
 			ref = parseReference();
-			//2 cases: Reference = Expression; OR Reference (ArgumentList?);
-			if (token.spelling.equals("=")){
-				//::AssignStmt
+			// 2 cases: Reference = Expression; OR Reference (ArgumentList?);
+			if (token.spelling.equals("=")) {
+				// ::AssignStmt
 				acceptIt();
 				expr = parseExpression();
 				accept("SEMICOLON");
 				statement = new AssignStmt(ref, expr, null);
 				return statement;
-			} else if (token.spelling.equals("(")){
-				//::CallStmt
+			} else if (token.spelling.equals("(")) {
+				// ::CallStmt
 				acceptIt();
 				el = parseArgumentList();
 				accept("RIGHTPAREN");
@@ -509,47 +577,49 @@ public class Parser {
 				statement = new CallStmt(ref, el, null);
 				return statement;
 			}
-		} else if (token.spelling.equals("if")){
+		} else if (token.spelling.equals("if")) {
+			System.out.println("IF STATEMENT DETECTED!!!!");
+			
 			acceptIt();
 			accept("LEFTPAREN");
 			expr = parseExpression();
 			accept("RIGHTPAREN");
-			
+
 			Statement statement1 = parseStatement();
 			Statement statement2 = null;
-			if (token.spelling.equals("else")){
+			if (token.spelling.equals("else")) {
+				System.out.println("ELSE STATEMENT DETECTED!!");
 				acceptIt();
 				statement2 = parseStatement();
 			}
 			IfStmt ifStmt = new IfStmt(expr, statement1, statement2, null);
-			
-		} else if (token.spelling.equals("while")){
+			return ifStmt;
+		} else if (token.spelling.equals("while")) {
 			acceptIt();
 			accept("LEFTPAREN");
 			expr = parseExpression();
 			accept("RIGHTPAREN");
 			statement = parseStatement();
-			
+
 			WhileStmt ws = new WhileStmt(expr, statement, null);
 			return ws;
-		} else if (token.spelling.equals("{")){
+		} else if (token.spelling.equals("{")) {
 			acceptIt();
-			while (true){
-				//loop to parse multiple statements
+			while (true) {
+				// loop to parse multiple statements
 				statement = parseStatement();
-				sl.add(statement);
-				if (token.spelling.equals("}")){
+				// sl.add(statement);
+				if (token.spelling.equals("}")) {
 					break;
 				}
-			}//end while loop
-			
+			}// end while loop
+
 			statement = new BlockStmt(sl, null);
 			return statement;
 		} else {
 			return null;
 		}
-		
-		
+
 		return statement;
 	}
 
@@ -565,7 +635,7 @@ public class Parser {
 		if (token.spelling.equals("this") || token.type.equals("IDENTIFIER")) {
 
 			Reference identifierRef = null;
-			id = parseIdentifier();
+			// id = parseIdentifier();
 
 			if (token.spelling.equals("this")) {
 				// create AST for this ::ThisRef
@@ -645,247 +715,183 @@ public class Parser {
 	}
 
 	private Expression parseExpression() {
+		System.out.println("PARSE EXPRESSION CALLED!!!!");
 
-		Expression expr = null;
-
-		System.out.println("Parse Expression called.");
-		System.out.println("token.type: " + token.type);
-		System.out.println("token.spelling: " + token.spelling);
-
-		if (token.spelling.equals("this") || token.type.equals("IDENTIFIER")) {
-			// this is a BaseRef or Reference Type
-			parseIdentifier();
-			System.out
-					.println("identifier parsed!! back in parseExpression()!!!");
-			System.out.println("token.spelling: " + token.spelling);
-			if (token.spelling.equals("[")) {
-				acceptIt();
-				parseExpression();
-				System.out
-						.println("AFTER PARSING EXPRESSION ABOUT TO ACCEPT RIGHT BRACKET.");
-				accept("RIGHTBRACKET");
-			}
-
-			if (token.type.equals("BINOP")) {
-				acceptIt();
-				if (token.spelling.equals("=")) {
-					acceptIt();
-				} else if (token.spelling.equals("-")
-						|| token.spelling.equals("!")) {
-					// if the token may be parsed as UNOP then try that
-					// if its not a UMOP then an error will be thrown.
-					parseUNOP();
-					// System.out.println("Two BINOPs together.");
-					// System.exit(4);
-				}
-				parseExpression();
-			}
-
-			if (token.spelling.equals("-") || token.spelling.equals("!")) {
-				System.out.println("Unacceptable place for UNOP.");
-				System.exit(4);
-			}
-
-			// after we've parsed BaseRef: this|id|id[Expression]
-			if (token.spelling.equals(".")) {
-				acceptIt();
-				parseIdentifier();
-				if (token.type.equals("LEFTBRACKET")) {
-					acceptIt();
-					parseExpression();
-					accept("RIGHTBRACKET");
-				}
-			} // at this point a reference type has been parsed.
-				// note that the reference may be followed by an argumentList in
-				// parentheses
-
-			// //////////////////////////////////////////////////
-			/*
-			 * if (token.type.equals("BINOP")) { // make sure next token isn't
-			 * another BINOP char next = scanner.peek(); // pull off any white
-			 * space to see next character while (next == ' ') { next =
-			 * scanner.peek(); } // throw error if we see a restricted sequence
-			 * of binop tokens. if (next == '+' || next == '-' || next == '/' ||
-			 * next == '*') { System.out.println("Invalid token sequence.");
-			 * System.exit(4); }
-			 * System.out.println("BINOP after identifier: Exp BINOP Exp.");
-			 * acceptIt(); parseExpression(); }
-			 */
-			// ////////////////////////////////////////////////////
-
-			if (token.type.equals("LEFTPAREN")) {
-				acceptIt();
-				// check if there is an argument list to be parsed.
-				while (true) {
-					if (!token.type.equals("RIGHTPAREN")) {
-						// if we're not looking at a right paren then there must
-						// be an argument list
-						parseArgumentList();
-					} else {
-						break;
-					}
-				}// end while loop for argument list.
-				accept("RIGHTPAREN");
-			} else {
-				// if we have parsed an identifier but none of the other avenues
-				// applied.
-				// throw error?
-				System.out
-						.println("after parsing identifier there weren't any avenues.");
-				return expr;
-				// System.exit(4);
-			}
-		} else if (token.spelling.equals("-") || token.spelling.equals("!")) {
-			System.out.println("UNOP beggining the expression...");
-			acceptIt();
-			parseExpression();
-		} else if (token.type.equals("LEFTPAREN")) {
-			acceptIt();
-			parseExpression();
-			accept("RIGHTPAREN");
-		} else if (token.type.equals("NUM")) {
-			System.out.println("NUM is starting off Expression!!");
-			parseNUM();
-			if (token.type.equals("BINOP")) {
-				parseBINOP();
-				parseExpression();
-				return expr;
-			} else {
-				return expr;
-			}
-			/*
-			 * if (token.type.equals("BINOP") && !token.spelling.equals("=")) {
-			 * System.out.println("BINOP after Expression/Reference"); // we
-			 * can't have 2 equals signs in the same // expression/statement.
-			 * acceptIt(); parseExpression(); //an expression may just be a
-			 * number. }
-			 */
-
-		} else if (token.spelling.equals("true")) {
-			acceptIt();
-			if (token.type.equals("BINOP")) {
-				acceptIt();
-				if (token.spelling.equals("=")) {
-					acceptIt();
-				} else {
-					// throw an error.
-					// System.out.println("we must see combo of >= <= !=");
-					// System.exit(4);
-				}
-				parseExpression();
-				return expr;
-			} else {
-				return expr;
-			}
-		} else if (token.spelling.equals("false")) {
-			acceptIt();
-			if (token.type.equals("BINOP")) {
-				acceptIt();
-				if (token.spelling.equals("=")) {
-					acceptIt();
-				} else {
-					System.exit(4);
-				}
-				parseExpression();
-				return expr;
-			} else {
-				return expr;
-			}
-
-		} else if (token.spelling.equals("new")) {
-			acceptIt();
-			if (token.type.equals("INT")) {
-				acceptIt();
-				accept("LEFTBRACKET");
-				parseExpression();
-				accept("RIGHTBRACKET");
-			} else if (token.type.equals("IDENTIFIER")) {
-				acceptIt();
-				if (token.type.equals("LEFTPAREN")) {
-					acceptIt();
-					accept("RIGHTPAREN");
-				} else if (token.type.equals("LEFTBRACKET")) {
-					acceptIt();
-					parseExpression();
-					accept("RIGHTBRACKET");
-				}
-			}
-
-		} else if (token.type.equals("INT")) {
-			System.out.println("Detected INT in parseExpression().");
-			acceptIt();
-			accept("LEFTPAREN");
-			parseExpression();
-			accept("RIGHTPAREN");
-
-		}
-
-		/*
-		 * { // case for Expression BINOP Expression
-		 * System.out.println("checking for Expression BINOP Expression."); if
-		 * (token.type.equals("IDENTIFIER") || token.spelling.equals("this")){
-		 * //if we see a reference:: case for Expression ::= Reference //or
-		 * Expression ::= Reference(ArgumentList?) parseReference(); //check if
-		 * we see leftparen after reference if (token.type.equals("LEFTPAREN")){
-		 * acceptIt(); parseArgumentList(); accept("RIGHTPAREN"); //that's the
-		 * expression now parse BINOP and another Expression. accept("BINOP");
-		 * parseExpression(); return; } else { //if the Expression is just a
-		 * reference then parse BINOP Expression accept("BINOP");
-		 * parseExpression(); return; } }
-		 */
-		// case for Expression ::= UNOP Expression
-		if (token.spelling.equals("-") || token.spelling.equals("!")) {
-			acceptIt();
-			parseExpression();
-			accept("BINOP");
-			parseExpression();
-		} else if (token.type.equals("LEFTPAREN")) {
-			acceptIt();
-			parseExpression();
-			accept("RIGHTPAREN");
-			accept("BINOP");
-			parseExpression();
-
-		}
-		// after parsing an expression of any of the above types parse BINOP
-		// then expression
-		/*
-		 * if (token.type.equals("BINOP")) {
-		 * System.out.println("BINOP after any expression!!"); acceptIt();
-		 * parseExpression(); }
-		 */
-
-		// }
-		// check for a BINOP and then parse another Expression.
-		// if there are consecutive BINOPs then throw error.
-		if (token.type.equals("BINOP")) {
-			// make sure next token isn't another BINOP
-			char next = scanner.previewedChar;
-			// pull off any white space to see next character
-			if (next == ' ') {
-				while (next == ' ') {
-					next = scanner.peek();
-				}
-			}
-			// throw error if we see another binop token.
-			if (next == '+' || next == '-' || next == '/' || next == '*'
-					|| next == '<' || next == '>' || next == '!' || next == '=') {
-				System.out
-						.println("Invalid token sequence. 2 BINOPs in Expression -- not doubleBINOP.");
-				System.exit(4);
-			}
-			if (equalsInStatement && token.spelling.equals("=")) {
-				System.out
-						.println("This statement already saw an equal sign!!");
-				System.exit(4);
-			}
-			System.out.println("BINOP after identifier: Exp BINOP Exp.");
-			acceptIt();
-			parseExpression();
-		}
+		Expression expr = parseE();
+		el.add(expr);
 		return expr;
 
 	}// end of parseExpression() method.
+
+	private Expression parseE() {
+		Expression expr = parseL();
+		while (token.spelling.equals("||")) {
+			Token t = new Token(token.type, token.spelling);
+			Operator op = new Operator(t, null);
+			acceptIt();
+			Expression expr2 = parseL();
+			expr = new BinaryExpr(op, expr, expr2, null);
+		}
+		return expr;
+	}
+
+	private Expression parseL() {
+		Expression expr = parseC();
+		while (token.spelling.equals("&&")) {
+			Token t = new Token(token.type, token.spelling);
+			Operator op = new Operator(t, null);
+			acceptIt();
+			Expression expr2 = parseC();
+			expr = new BinaryExpr(op, expr, expr2, null);
+		}
+		return expr;
+	}
+
+	private Expression parseC() {
+		Expression expr = parseQ();
+		while (token.spelling.equals("==") || token.spelling.equals("!=")) {
+			Token t = new Token(token.type, token.spelling);
+			Operator op = new Operator(t, null);
+			acceptIt();
+			Expression expr2 = parseQ();
+			expr = new BinaryExpr(op, expr, expr2, null);
+		}
+		return expr;
+	}
+
+	private Expression parseQ() {
+		Expression expr = parseR();
+		while (token.spelling.equals("<=") || token.spelling.equals(">=")
+				|| token.spelling.equals("<") || token.spelling.equals(">")) {
+			Token t = new Token(token.type, token.spelling);
+			Operator op = new Operator(t, null);
+			acceptIt();
+			Expression expr2 = parseR();
+			expr = new BinaryExpr(op, expr, expr2, null);
+		}
+		return expr;
+	}
+
+	private Expression parseR() {
+		Expression expr = parseT();
+		while (token.spelling.equals("+") || token.spelling.equals("-")) {
+			Token t = new Token(token.type, token.spelling);
+			Operator op = new Operator(t, null);
+			acceptIt();
+			Expression expr2 = parseT();
+			expr = new BinaryExpr(op, expr, expr2, null);
+		}
+		return expr;
+	}
+
+	private Expression parseT() {
+		Expression expr = parseD();
+		while (token.spelling.equals("*") || token.spelling.equals("/")) {
+			Token t = new Token(token.type, token.spelling);
+			Operator op = new Operator(t, null);
+			acceptIt();
+			Expression expr2 = parseD();
+			expr = new BinaryExpr(op, expr, expr2, null);
+		}
+		return expr;
+	}
+
+	private Expression parseF() {
+		return null;
+	}
+
+	private Expression parseD() {
+
+		// check for true or false at the bottom of production rules
+		switch (token.spelling) {
+		case "true":
+		case "false":
+			BooleanLiteral bl = new BooleanLiteral(token.spelling, null);
+			Expression expr = new LiteralExpr(bl, null);
+			acceptIt();
+			return expr;
+
+		}
+		// check for a number at bottom of production rules
+		switch (token.type) {
+		case "NUM":
+			IntLiteral il = new IntLiteral(token.spelling, null);
+			Expression expr = new LiteralExpr(il, null);
+			acceptIt();
+			return expr;
+		}
+
+		// check for case of parenthesized expression
+		switch (token.type) {
+		case "LEFTPAREN":
+			acceptIt();
+			Expression expr = parseE();
+			accept("RIGHTPAREN");
+			return expr;
+		}
+
+		// if we call parseReference it will parse the expression all the way
+		// through
+		// all of the special cases for references will be handled and returned
+		// in bundle
+		if (token.type.equals("IDENTIFIER")) {
+			// if we see an identifier then we know this is going to be
+			// either Expression ::= Reference | Reference (ArgumentList?)
+			System.out
+					.println("Identifier located so parseReference being called.");
+
+			Reference ref = parseReference();
+
+			Expression expr = new RefExpr(ref, null);
+			return expr;
+
+		}
+
+		if (token.spelling.equals("-") || token.spelling.equals("!")) {
+
+			Token t = new Token("UNOP", token.spelling);
+			Operator op = new Operator(t, null);
+			acceptIt();
+			Expression expr = parseExpression();
+			Expression ue = new UnaryExpr(op, expr, null);
+			return ue;
+		}
+
+		// check for new id(); new int[Expression]; or new id [Expression]
+		if (token.spelling.equals("new")) {
+			acceptIt();
+
+			if (token.spelling.equals("int")) {
+				acceptIt();
+				BaseType bt = new BaseType(TypeKind.INT, null);
+				accept("LEFTBRACKET");
+				Expression expr = parseExpression();
+				accept("RIGHTBRAKCET");
+
+				Expression ne = new NewArrayExpr(bt, expr, null);
+				return ne;
+			}
+
+			Identifier id = parseIdentifier();
+			if (token.type.equals("LEFTPAREN")) {
+				acceptIt();
+				ClassType ct = new ClassType(id, null);
+				Expression ne = new NewObjectExpr(ct, null);
+				accept("RIGHTPAREN");
+				return ne;
+			} else if (token.type.equals("LEFTBRACKET")) {
+				acceptIt();
+				Expression expr = parseExpression();
+				accept("RIGHTBRACKET");
+				ClassType ct = new ClassType(id, null);
+				Expression na = new NewArrayExpr(ct, expr, null);
+				return na;
+			}
+
+		}
+
+		return null;
+	}
 
 	private void parseNUM() {
 		accept("NUM");
@@ -1031,7 +1037,7 @@ public class Parser {
 		System.out
 				.println("CALLING PARSETYPE FROM PARSEDECLARATOR() !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 		Type type = parseType();
-		System.out.println("type: " + type.typeKind);
+		System.out.println("TYPE::::::::: " + type.typeKind);
 
 		// end of Declarators
 		// parseIdentifier
@@ -1053,13 +1059,27 @@ public class Parser {
 		} else if (token.type.equals("LEFTPAREN")) {
 			acceptIt();
 			// methodDeclaration detected
-			pl = parseParameterList();
+			if (!token.type.equals("RIGHTPAREN")) {
+				pl = parseParameterList();
+			}
+			// pl = parseParameterList();
 			// we should see a right paren after parsing parameter list
 			accept("RIGHTPAREN");
 			accept("LEFTBRACE");
 			// there may or may not be a statement
 			// therefore parse statement may come back null
-			statement = parseStatement();
+			// statement = null;
+			while (true) {
+
+				statement = parseStatement();
+				sl.add(statement);
+				if (token.spelling.equals("return")
+						|| token.spelling.equals(";")
+						|| token.spelling.equals("}")) {
+					break;
+				}
+			}
+
 			System.out
 					.println("just returned to parseDeclarator() after parsing statement...");
 			// check for a return statement after parsing statement
@@ -1083,7 +1103,7 @@ public class Parser {
 			return md;
 			// System.exit(0);
 		}
-		// if we make it here then somethig was wrong with the declarator.
+		// if we make it here then something was wrong with the declarator.
 		System.out.println("throwing an error from parseDeclarator()....");
 		System.exit(4);
 		return pl;
